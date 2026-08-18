@@ -108,6 +108,15 @@
   }
   nav.tabs button.active { color: var(--accent2); border-bottom-color: var(--accent2); }
 
+  .bench-subtabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 14px 0 4px; }
+  .bench-subtabs button {
+    background: var(--surface-1); border: 1px solid var(--border-strong); color: var(--text-secondary);
+    border-radius: 999px; padding: 6px 13px; font-size: 12.5px; font-weight: 600; cursor: pointer;
+  }
+  .bench-subtabs button:hover { background: var(--surface-2); }
+  .bench-subtabs button.active { background: var(--accent2); border-color: var(--accent2); color: #fff; }
+  .ct-row:last-child { border-bottom: none !important; }
+
   .panel { display: none; }
   .panel.active { display: block; }
 
@@ -424,49 +433,55 @@
       <p class="disclaimer">These numbers were reconstructed from your Numbers file using a byte-level reverse-engineering pass (the file format was too new for standard converters — see chat for details), not read cell-by-cell. Fields marked <span class="badge-unconfirmed"></span> are extracted values I couldn't fully confirm — check them against your curriculum binder. Editing a field marks it confirmed. All edits apply for this session only — use Export below to save your corrected version to a file, and Import to reload it next time.</p>
       <p class="disclaimer">The six class-type columns (Kickboxing through MT Advanced) each have a "Counts" checkbox and a minimum. Unchecking "Counts" excludes that class type from a student's qualifying-class total for that rank on the Check a Student tab — Purple Shirt's breakdown (Kickboxing/Fundamentals/All Levels excluded; Intermediate, Sparring, and Advanced count exclusively) was confirmed directly by the gym. Every other rank's breakdown is my best-guess default and is flagged unconfirmed — please review.</p>
 
-      <div class="bench-table-wrap" style="margin-top:14px;">
-        <table class="bench-table">
-          <thead>
-            <tr>
-              <th>Rank</th>
-              <th>Min. time at prev. rank</th>
-              <th>Min. total training time</th>
-              <th>Class-count requirement</th>
-              <th>Kickboxing</th>
-              <th>MT Fundamentals</th>
-              <th>MT All Levels</th>
-              <th>MT Intermediate</th>
-              <th>MT Sparring</th>
-              <th>MT Advanced</th>
-            </tr>
-          </thead>
-          <tbody id="benchTableBody"></tbody>
-        </table>
-      </div>
+      <nav class="bench-subtabs no-print" id="benchSubtabs"></nav>
 
-      <h3>Additional / discretionary requirements</h3>
-      <div id="manualNotesWrap"></div>
+      <div id="benchMasterSection">
+        <div class="bench-table-wrap" style="margin-top:14px;">
+          <table class="bench-table">
+            <thead>
+              <tr>
+                <th>Rank</th>
+                <th>Min. time at prev. rank</th>
+                <th>Min. total training time</th>
+                <th>Class-count requirement</th>
+                <th>Kickboxing</th>
+                <th>MT Fundamentals</th>
+                <th>MT All Levels</th>
+                <th>MT Intermediate</th>
+                <th>MT Sparring</th>
+                <th>MT Advanced</th>
+              </tr>
+            </thead>
+            <tbody id="benchTableBody"></tbody>
+          </table>
+        </div>
 
-      <h3>Readiness rating threshold</h3>
-      <div class="grid">
-        <div class="field">
-          <label for="f_readyThreshold">Minimum proficiency rating counted as "technically ready"</label>
-          <select id="f_readyThreshold">
-            <option>Poor</option><option>Below Average</option><option selected>Proficient</option>
-            <option>Good</option><option>Excellent</option>
-          </select>
+        <h3>Additional / discretionary requirements</h3>
+        <div id="manualNotesWrap"></div>
+
+        <h3>Readiness rating threshold</h3>
+        <div class="grid">
+          <div class="field">
+            <label for="f_readyThreshold">Minimum proficiency rating counted as "technically ready"</label>
+            <select id="f_readyThreshold">
+              <option>Poor</option><option>Below Average</option><option selected>Proficient</option>
+              <option>Good</option><option>Excellent</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="btn-row no-print">
+          <button class="btn-secondary" id="btnExport">Export settings (.json)</button>
+          <button class="btn-secondary" id="btnImportTrigger">Import settings…</button>
+          <input type="file" id="btnImportFile" accept="application/json" style="display:none;">
+          <button class="btn-secondary" id="btnResetDefaults">Reset to extracted defaults</button>
         </div>
       </div>
 
-      <div class="btn-row no-print">
-        <button class="btn-secondary" id="btnExport">Export settings (.json)</button>
-        <button class="btn-secondary" id="btnImportTrigger">Import settings…</button>
-        <input type="file" id="btnImportFile" accept="application/json" style="display:none;">
-        <button class="btn-secondary" id="btnResetDefaults">Reset to extracted defaults</button>
-      </div>
+      <div id="benchRankSection" style="display:none;"></div>
     </div>
 
-    <div class="card">
+    <div class="card" id="benchCurriculumCard">
       <h2>Curriculum &amp; readiness rubric reference</h2>
       <p class="disclaimer">Summarized from Easton's Promotion Benchmarks document for quick reference during a coach assessment. Not a substitute for the full curriculum binder.</p>
       <div id="rankDetails"></div>
@@ -754,7 +769,7 @@
   };
   const DEFAULT_RUBRIC = 'No separate written readiness rubric was found for this rank in the source document beyond the curriculum checklist — use the curriculum reference below and coach judgment.';
 
-  let state = { benchmarks: defaultBenchmarks(), readyThreshold: 'Proficient' };
+  let state = { benchmarks: defaultBenchmarks(), readyThreshold: 'Proficient', benchSubTab: 'master' };
 
   // ---------- populate selects ----------
   function fillRankSelect(sel, opts){
@@ -967,7 +982,7 @@
     }).join('');
 
     tbody.querySelectorAll('input[type=number][data-field]').forEach(inp=>{
-      inp.addEventListener('input', ()=>{
+      inp.addEventListener('change', ()=>{
         const rk = inp.dataset.rank, fld = inp.dataset.field;
         state.benchmarks[rk][fld].value = parseFloat(inp.value)||0;
         state.benchmarks[rk][fld].confirmed = true;
@@ -984,7 +999,7 @@
       });
     });
     tbody.querySelectorAll('input[type=number][data-classtype][data-sub="min"]').forEach(inp=>{
-      inp.addEventListener('input', ()=>{
+      inp.addEventListener('change', ()=>{
         const rk = inp.dataset.rank, cType = inp.dataset.classtype;
         state.benchmarks[rk].classTypes[cType].min = parseFloat(inp.value)||0;
         state.benchmarks[rk].classTypes[cType].confirmed = true;
@@ -1031,6 +1046,150 @@
         <div class="rank-detail-body">${b.curriculum}${b.manualNote?`<br><br><strong>Note:</strong> ${b.manualNote}`:''}</div>
       </details>`;
     }).join('');
+
+    renderBenchSubtabs();
+    document.getElementById('benchMasterSection').style.display = state.benchSubTab === 'master' ? '' : 'none';
+    document.getElementById('benchCurriculumCard').style.display = state.benchSubTab === 'master' ? '' : 'none';
+    const rankSection = document.getElementById('benchRankSection');
+    if (state.benchSubTab === 'master') {
+      rankSection.style.display = 'none';
+    } else {
+      rankSection.style.display = '';
+      renderBenchRankSection(state.benchSubTab);
+    }
+  }
+
+  function renderBenchSubtabs(){
+    const nav = document.getElementById('benchSubtabs');
+    const tabs = [{key:'master', name:'Master'}].concat(RANKS);
+    nav.innerHTML = tabs.map(t=>
+      `<button type="button" class="${state.benchSubTab===t.key?'active':''}" data-benchtab="${t.key}">${t.name}</button>`
+    ).join('');
+    nav.querySelectorAll('button').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        state.benchSubTab = btn.dataset.benchtab;
+        renderBenchmarksPanel();
+      });
+    });
+  }
+
+  function renderBenchRankSection(rankKey){
+    const r = rankByKey(rankKey);
+    const b = state.benchmarks[rankKey];
+    const wrap = document.getElementById('benchRankSection');
+
+    const timeField = (key, label) => {
+      const fld = b[key];
+      return `<div class="field">
+        <label>${label}</label>
+        <div style="display:flex; gap:6px; align-items:center;">
+          <input type="number" min="0" step="0.5" value="${fld.value}" style="width:80px;" data-field="${key}">
+          <select data-field="${key}" data-sub="unit">
+            <option value="months" ${fld.unit==='months'?'selected':''}>months</option>
+            <option value="years" ${fld.unit==='years'?'selected':''}>years</option>
+          </select>
+          ${fld.confirmed?'':'<span class="badge-unconfirmed" title="Extracted but not confirmed"></span>'}
+        </div>
+      </div>`;
+    };
+
+    const classTypeRow = ([key, label]) => {
+      const fld = b.classTypes[key];
+      return `<div class="ct-row" style="display:flex; align-items:center; gap:14px; padding:9px 2px; border-bottom:1px solid var(--border);">
+        <div style="flex:1; font-size:13px; font-weight:600;">${label}</div>
+        <label style="display:flex; align-items:center; gap:4px; font-size:12px; font-weight:600; cursor:pointer;">
+          <input type="checkbox" ${fld.counts?'checked':''} data-classtype="${key}" data-sub="counts"> Counts
+        </label>
+        <div style="display:flex; align-items:center; gap:4px;">
+          <span style="font-size:11px; color:var(--text-secondary);">min</span>
+          <input type="number" min="0" step="1" value="${fld.min}" style="width:64px;" data-classtype="${key}" data-sub="min">
+        </div>
+        <div style="width:16px;">${fld.confirmed?'':'<span class="badge-unconfirmed" title="Best-guess default — please confirm"></span>'}</div>
+      </div>`;
+    };
+
+    const checklist = manualChecklistFor(rankKey);
+
+    wrap.innerHTML = `
+      <h3 style="margin-top:0;">${r.name} <span style="font-weight:400; color:var(--text-muted); font-size:14px;">— ${r.thai}</span></h3>
+
+      <div class="grid">
+        ${timeField('minTimeAtPrevRank', 'Min. time at previous rank')}
+        ${timeField('minTimeTotalTraining', 'Min. total training time')}
+        <div class="field">
+          <label>Class-count requirement</label>
+          <input type="number" min="0" step="1" value="${b.minClassesAtRank.value}" data-field="minClassesAtRank">
+          ${b.minClassesAtRank.confirmed?'':'<span class="badge-unconfirmed"></span>'}
+          <input type="text" class="bench-note-input" style="margin-top:4px;" value="${escapeAttr(b.classesLabel||'')}" data-field="classesLabel" placeholder="what this count refers to">
+        </div>
+      </div>
+
+      <p style="font-size:12.5px; font-weight:600; color:var(--text-secondary); margin:20px 0 2px;">Min # of classes by class type</p>
+      <div style="border:1px solid var(--border); border-radius:8px; padding:0 12px;">
+        ${CLASS_TYPES.map(classTypeRow).join('')}
+      </div>
+
+      <div class="field" style="margin-top:16px;">
+        <label>Additional / discretionary requirements</label>
+        <textarea data-field="manualNote" placeholder="Discretionary / non-numeric requirements…">${escapeHtml(b.manualNote||'')}</textarea>
+      </div>
+
+      ${checklist.length ? `
+        <div class="field" style="margin-top:12px;">
+          <label>Additional manual requirements</label>
+          <ul style="margin:6px 0 0; padding-left:18px; font-size:13px; color:var(--text-secondary); line-height:1.6;">
+            ${checklist.map(item=>`<li>${item}</li>`).join('')}
+          </ul>
+        </div>` : ''}
+
+      <h3 style="margin-top:24px;">Technical proficiency &amp; curriculum</h3>
+      <div style="font-size:13px; color:var(--text-secondary); line-height:1.6;">${b.curriculum}</div>
+    `;
+
+    wrap.querySelectorAll('input[type=number][data-field]').forEach(inp=>{
+      inp.addEventListener('change', ()=>{
+        const fld = inp.dataset.field;
+        state.benchmarks[rankKey][fld].value = parseFloat(inp.value)||0;
+        state.benchmarks[rankKey][fld].confirmed = true;
+        renderBenchmarksPanel();
+        updateClassesLabel();
+      });
+    });
+    wrap.querySelectorAll('select[data-sub="unit"]').forEach(sel=>{
+      sel.addEventListener('change', ()=>{
+        const fld = sel.dataset.field;
+        state.benchmarks[rankKey][fld].unit = sel.value;
+        state.benchmarks[rankKey][fld].confirmed = true;
+        renderBenchmarksPanel();
+      });
+    });
+    wrap.querySelectorAll('input[type=number][data-classtype][data-sub="min"]').forEach(inp=>{
+      inp.addEventListener('change', ()=>{
+        const cType = inp.dataset.classtype;
+        state.benchmarks[rankKey].classTypes[cType].min = parseFloat(inp.value)||0;
+        state.benchmarks[rankKey].classTypes[cType].confirmed = true;
+        renderBenchmarksPanel();
+        refreshClassSums();
+      });
+    });
+    wrap.querySelectorAll('input[data-classtype][data-sub="counts"]').forEach(cb=>{
+      cb.addEventListener('change', ()=>{
+        const cType = cb.dataset.classtype;
+        state.benchmarks[rankKey].classTypes[cType].counts = cb.checked;
+        state.benchmarks[rankKey].classTypes[cType].confirmed = true;
+        renderBenchmarksPanel();
+        refreshClassSums();
+      });
+    });
+    wrap.querySelectorAll('input[data-field="classesLabel"]').forEach(inp=>{
+      inp.addEventListener('input', ()=>{
+        state.benchmarks[rankKey].classesLabel = inp.value;
+        updateClassesLabel();
+      });
+    });
+    wrap.querySelectorAll('textarea[data-field="manualNote"]').forEach(ta=>{
+      ta.addEventListener('input', ()=>{ state.benchmarks[rankKey].manualNote = ta.value; });
+    });
   }
 
   function escapeHtml(s){ return (s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }

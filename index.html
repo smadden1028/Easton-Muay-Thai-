@@ -307,7 +307,7 @@
 
         <div class="field span2">
           <label>Class attendance by type</label>
-          <span class="hint" id="classTypeFieldsHint" style="display:block; margin-bottom:8px;">All class types are tracked here regardless of rank. Types marked "tracked only" below are still recorded but don't count toward this specific promotion — see the Benchmarks tab for the full rules.</span>
+          <span class="hint" id="classTypeFieldsHint" style="display:block; margin-bottom:8px;">Enter only classes attended <strong>since this student was promoted to their current rank</strong> (see Date of last promotion above) — not lifetime totals. All class types are tracked here regardless of rank; types marked "tracked only" below are still recorded but don't count toward this specific promotion — see the Benchmarks tab for the full rules.</span>
           <div class="grid" style="grid-template-columns: repeat(3, 1fr); gap: 10px 14px;">
             <div class="field" data-classtype-field="kickboxing">
               <label for="f_kickboxing">Kickboxing <span class="ct-tag" data-ct-tag="kickboxing"></span></label>
@@ -342,9 +342,9 @@
           <span class="hint">auto-summed from the types that count toward this promotion, per the Benchmarks tab</span>
         </div>
         <div class="field">
-          <label for="f_totalClassesOut">Total classes (lifetime)</label>
+          <label for="f_totalClassesOut">Total classes at current rank</label>
           <input type="text" id="totalClassesOut" readonly disabled value="0">
-          <span class="hint">auto-summed from all class types above, counted or tracked-only</span>
+          <span class="hint">auto-summed from all class types above (counted or tracked-only) since the student's current rank — not a lifetime total</span>
         </div>
 
         <div class="field">
@@ -1404,13 +1404,13 @@
     text += `Current: ${rankByKey(c.currentKey).name}  →  Evaluating for: ${rankByKey(c.targetKey).name}\n\n`;
     text += `Eligibility: ${c.eligible ? 'ELIGIBLE' : 'NOT YET ELIGIBLE'}\n`;
     c.rows.forEach(r=>{ text += `  - ${r.label}: required ${r.fmt(r.required)}, actual ${r.fmt(r.actual)} — ${r.pass?'MET':'NOT MET'}${r.confirmed?'':' (unconfirmed threshold)'}\n`; });
-    text += `\nClass attendance by type:\n`;
+    text += `\nClass attendance by type (since current rank):\n`;
     CLASS_TYPES.forEach(([key, label])=>{
       const req = c.bench.classTypes[key];
       const actual = c.classVals[key] || 0;
       text += `  - ${label}: ${actual}${req.counts ? ' (counts toward this rank' + (req.min>0? ', min '+req.min:'') + ')' : ' (does not count toward this rank)'}${req.confirmed?'':' [unconfirmed]'}\n`;
     });
-    text += `  Qualifying total: ${c.classesAtRank}   Lifetime total: ${c.totalClasses}\n`;
+    text += `  Qualifying total: ${c.classesAtRank}   Total at current rank: ${c.totalClasses}\n`;
     if (c.manualItems.length) {
       text += `  Additional requirements:\n`;
       document.querySelectorAll('#manualChecklistItems input[type=checkbox]').forEach((cb,i)=>{ text += `    - ${c.manualItems[i]}: ${cb.checked?'done':'not yet'}\n`; });
